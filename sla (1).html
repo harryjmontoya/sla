@@ -1,0 +1,93 @@
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/js-cookie@2/src/js.cookie.min.js"></script>
+<div id="chart_div" style="width: 100%; height: 100%;"></div>
+<script type="text/javascript">
+(function(){
+
+  //Get auth token from cookies
+  var token = Cookies.get('motion.token');
+  //
+
+  //Insert your server ip
+  var url = 'your_server_ip';
+  //
+
+  //Insert Custom Report id
+  var reportId = 75;
+  //
+
+  //insert API call frequency, in seconds
+  var intervalTime = 30;
+  //
+
+  var count = 0;
+
+  google.charts.load('current', {'packages':['gauge']});
+  google.charts.setOnLoadCallback(drawChart);
+
+  function getDate(){
+    var today = new Date();
+    var dd = today.getDate();
+    var mm = today.getMonth()+1; //January is 0!
+    var yyyy = today.getFullYear();
+
+    if(dd<10) {
+        dd = '0'+dd
+    }
+
+    if(mm<10) {
+        mm = '0'+mm
+    }
+
+    return yyyy + '-' + mm + '-' + dd;
+  }
+
+  function getResults(data, chart, options){
+    var today = getDate();
+    $.ajax
+      ({
+        type: "GET",
+        url: "https://" + url + "/api/analytics/custom_reports/" + reportId + "/run",
+        dataType: 'json',
+        async: false,
+        data: {
+          endDate: today + '+23:59:59',
+          output: 'web',
+          startDate: today + '+00:00:00'
+        },
+        beforeSend: function (xhr){
+            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+        },
+        success: function (results){
+          if(results && results.rows && results.rows.length){
+            count = results.rows[0]['Answer Rate'];
+          }
+          else{
+            count = 0;
+          }
+          data.setValue(0, 1, count);
+          chart.draw(data, options);
+        }
+    });
+  }
+
+  function drawChart() {
+
+    var data = google.visualization.arrayToDataTable([
+      ['Label', 'Value'],
+      ['SLA (%)', 0]
+    ]);
+
+    var options = {greenFrom: 80, greenTo: 100, redFrom: 0, redTo: 60, yellowFrom:60, yellowTo: 80, minorTicks: 10};
+
+    var chart = new google.visualization.Gauge(document.getElementById('chart_div'));
+    getResults(data, chart, options);
+
+    setInterval(function() {
+      getResults(data, chart, options);
+    }, intervalTime * 1000);
+  }
+})();
+
+</script>
